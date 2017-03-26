@@ -163,6 +163,71 @@ mod request;
 macro_rules! service {
     (
         $(#[$meta:meta])*
+        trait $servicenm:ident [$($generics:tt)+] {
+            $($guts:tt)*
+        }
+    ) => (
+        service! {
+            $(#[$meta])*
+            trait $servicenm [$($generics)+] {
+                $($guts)*
+            }
+
+            impl[T: $crate::AbsAdapter] for T {
+                |this| this
+            }
+        }
+    );
+    (
+        $(#[$meta:meta])*
+        pub trait $servicenm:ident [$($generics:tt)+] {
+            $($guts:tt)*
+        }
+    ) => (
+        service! {
+            $(#[$meta])*
+            pub trait $servicenm [$($generics:tt)+] {
+                $($guts)*
+            }
+
+            impl[T: $crate::AbsAdapter] for T {
+                |this| this
+            }
+        }
+    );
+    (
+        $(#[$meta:meta])*
+        trait $servicenm:ident [$($generics:tt)+] {
+            $($guts:tt)*
+        }
+
+        $($delegates:tt)+
+    ) => (
+        $(#[$meta])*
+        trait $servicenm<$($generics)+> {
+            method_proto!($($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($delegates)+);
+    );
+    (
+        $(#[$meta:meta])*
+        pub trait $servicenm:ident [$($generics:tt)+] {
+            $($guts:tt)*
+        }
+
+        $($delegates:tt)+
+    ) => (
+        $(#[$meta])*
+        pub trait $servicenm<$($generics)+> {
+            method_proto!($($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($delegates)+);
+    );
+    // Non-generic trait
+    (
+        $(#[$meta:meta])*
         trait $servicenm:ident {
             $($guts:tt)*
         }
@@ -411,6 +476,20 @@ macro_rules! delegate_impl {
         delegate_impl!($servicenm; [$($guts)*] $($rem)*);
     );
     (
+        $servicenm:ident[$($generics:tt)+]; [$($guts:tt)*]
+        impl for $delegate:ty {
+            $getadapt:expr
+        }
+
+        $($rem:tt)*
+    ) => (
+        impl<$($generics)+> $servicenm<$($generics)+> for $delegate {
+            method_impl!($getadapt; $($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($rem)*);
+    );
+    (
         $servicenm:ident; [$($guts:tt)*]
         impl [$($decls:tt)*] for $delegate:ty {
             $getadapt:expr
@@ -423,6 +502,20 @@ macro_rules! delegate_impl {
         }
 
         delegate_impl!($servicenm; [$($guts)*] $($rem)*);
+    );
+    (
+        $servicenm:ident[$($generics:tt)+]; [$($guts:tt)*]
+        impl [$($decls:tt)*] for $delegate:ty {
+            $getadapt:expr
+        }
+
+        $($rem:tt)*
+    ) => (
+        impl<$($generics)+, $($decls)*> $servicenm<$($generics)+> for $delegate {
+            method_impl!($getadapt; $($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($rem)*);
     );
     (
         $servicenm:ident; [$($guts:tt)*]
@@ -439,6 +532,20 @@ macro_rules! delegate_impl {
         delegate_impl!($servicenm; [$($guts)*] $($rem)*);
     );
     (
+        $servicenm:ident[$($generics:tt)+]; [$($guts:tt)*]
+        impl for $delegate:ty [where $($wheres:tt)+]{
+            $getadapt:expr
+        }
+
+        $($rem:tt)*
+    ) => (
+        impl<$($generics)+> $servicenm<$($generics)+> for $delegate where $($wheres)+ {
+            method_impl!($getadapt; $($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($rem)*);
+    );
+    (
         $servicenm:ident; [$($guts:tt)*]
         impl [$($decls:tt)*] for $delegate:ty [where $($wheres:tt)+]{
             $getadapt:expr
@@ -452,8 +559,23 @@ macro_rules! delegate_impl {
 
         delegate_impl!($servicenm; [$($guts)*] $($rem)*);
     );
+    (
+        $servicenm:ident[$($generics:tt)+]; [$($guts:tt)*]
+        impl [$($decls:tt)*] for $delegate:ty [where $($wheres:tt)+]{
+            $getadapt:expr
+        }
+
+        $($rem:tt)*
+    ) => (
+        impl<$($generics)+, $($decls)*> $servicenm<$($generics)+> for $delegate where $($wheres)+ {
+            method_impl!($getadapt; $($guts)*);
+        }
+
+        delegate_impl!($servicenm[$($generics)+]; [$($guts)*] $($rem)*);
+    );
     // Empty end-case for recursion
     ($servicenm:ident; [$($guts:tt)*]) => ();
+    ($servicenm:ident[$($generics:tt)+]; [$($guts:tt)*]) => ();
 }
 
 /// Create a meta-service trait which combines the listed service traits.
